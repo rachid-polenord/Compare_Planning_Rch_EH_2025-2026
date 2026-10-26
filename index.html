@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Planning comparatif</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font-family:Arial,sans-serif;color:#222}
+body{padding:22px 30px;background:#000;display:flex;flex-direction:column;gap:12px}
+header,.row{display:flex;align-items:center;gap:8px}
+header{display:grid;grid-template-columns:1fr auto 1fr}
+header #title{justify-self:end}
+#aide{padding:8px 18px;background:#ffdd33;border:1px solid #b8960b;color:#222;font-weight:bold}
+#aide:hover{background:#ffcc00}
+@keyframes clignote{0%,100%{opacity:1}50%{opacity:.1}}
+#aide{animation:clignote .9s ease-in-out .6s 1}
+@media (prefers-reduced-motion:reduce){#aide{animation:none}}
+h1{font-size:19px;margin:0;color:#fff;}
+#title{font-weight:bold;color:#fff;}
+.panel{background:#fff;border:1px solid #ddd;border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.row{flex-wrap:wrap}
+button,input{font:inherit}
+button{font-size:12px;padding:7px 9px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff;color:#222}
+button:disabled{opacity:.4;cursor:default}
+.selected{outline:2px solid #222;outline-offset:1px}
+.on{background:#222;color:#fff}
+#tags,#months{display:flex;gap:6px}
+#months{flex:1}
+#months button{flex:1;padding:7px 2px}
+.years{margin-left:auto;display:flex;gap:5px}
+.help{font-size:12px;color:#666}
+.stats{display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px;background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px}
+.sgroup{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.sgroup+.sgroup{padding-left:20px;border-left:2px solid #ccc}
+.sname{font-weight:bold;margin-right:2px}
+.stat{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #ccc;border-radius:4px;background:#fff;white-space:nowrap}
+.stat i{width:11px;height:11px;border-radius:2px;border:1px solid #0003;flex-shrink:0}
+.stat b{font-size:14px}
+.stat.main{border:2px solid #222;padding:4px 10px}
+.stat.main b{font-size:16px}
+#notice{margin-left:auto;color:#666}
+
+.grid{flex:1;min-height:0;overflow:hidden;border:1px solid #aaa;background:#fff}
+table{height:100%;width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0}
+th,td{padding:0;border-right:1px solid #bbb;border-bottom:1px solid #bbb}
+tr>*:last-child{border-right:0}
+tbody tr:last-child>*{border-bottom:0}
+.hour{width:46px;font-size:12px;font-weight:normal;color:#555;text-align:center}
+thead th{font-size:12px;font-weight:normal;text-align:center}
+thead .weeks{height:30px}
+thead .comments{height:40px}
+.cmc{background:#fde3e3}
+.cm{display:block;width:100%;height:100%;padding:4px 8px;border:0;border-radius:0;background:#fde3e3;color:#222;font-size:13px;text-align:left}
+.cm:hover{background:#f9caca}
+.cm .ct{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.25}
+.cm.empty .ct{color:#7a4a4a}
+.cm .ic{display:none;text-align:center;font-size:17px}
+.cm.narrow .ct{display:none}
+.cm.narrow .ic{display:block}
+.cm.narrow.empty .ic{color:#7a4a4a}
+#cmtext{width:100%;margin-top:12px;padding:8px;border:1px solid #bbb;border-radius:4px;resize:none;font:inherit}
+.cmfoot{display:flex;justify-content:space-between;gap:10px;margin-top:4px}
+thead .days{height:38px}
+thead .agents{height:22px}
+thead b{display:block;margin-top:2px;font-size:13px}
+.agent{font-size:11px;color:#666;border-right:1px solid #e2e2e2}
+.r{border-right:1px solid #e2e2e2}
+.end{border-right:3px solid #222}
+.wbs{display:flex;gap:2px;padding:2px;height:100%}
+.wb{flex:1;min-width:0;font-size:11px;padding:2px;border:0;border-radius:3px;background:#efefed;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb:not(.hra){background:#fff;color:#222;font-weight:bold;border:1px solid #222;border-bottom-width:3px;box-shadow:0 1px 3px #0004;cursor:pointer}
+.wb:not(.hra):hover:not(:disabled){background:#ffe9a8}
+.wb:not(.hra):active:not(:disabled){border-bottom-width:1px;margin-top:2px;box-shadow:none}
+.wb:not(.hra):focus-visible{outline:2px solid #1a56db;outline-offset:1px}
+.wb:not(.hra):disabled{background:#efefed;color:#555;border-color:#aaa;box-shadow:none;cursor:default}
+.wb.hra{background:#ccff00;color:#222;font-weight:bold;border:1px solid #8aa000;box-shadow:0 0 6px #ccff00}
+.wb.hra:disabled{box-shadow:none}
+.wb.hra.blink{animation:hrablink .9s ease-in-out 1}
+@keyframes hrablink{0%,100%{opacity:1}35%,65%{opacity:.05}}
+@media(prefers-reduced-motion:reduce){.wb.hra.blink{animation:none}}
+td.eh{background:#fbfbfb}
+.cell{cursor:cell;touch-action:none;user-select:none;-webkit-user-select:none}
+.cell:hover{box-shadow:inset 0 0 0 2px #555}
+
+dialog{border:1px solid #aaa;border-radius:8px;padding:20px;width:440px}
+dialog::backdrop{background:#0008}
+dialog h2{margin:0;font-size:18px}
+#pdfmodal{width:92vw;height:90vh;max-width:none;max-height:none;overflow:hidden}
+#pdfmodal[open]{display:flex;flex-direction:column;gap:12px}
+#pdfhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#pdfviewer{flex:1;width:100%;border:1px solid #ccc;min-height:0}
+#imgwrap{display:none;flex:1;min-height:0;overflow:auto;border:1px solid #ccc;background:#fff}
+#imgviewer{flex:none;margin:auto;max-width:none;height:auto}
+#zoombar{display:none;align-items:center;gap:8px}
+.zb{min-width:48px;height:48px;padding:0 14px;font-size:28px;font-weight:bold;line-height:1;background:#fff;border:2px solid #222;border-radius:8px;color:#222;cursor:pointer}
+.zb:hover:not(:disabled){background:#ffe9a8}
+.zb:disabled{opacity:.35;cursor:default}
+#zoomfit{font-size:15px}
+#zoomval{min-width:64px;text-align:center;font-size:16px;font-weight:bold}
+#pdfmodal.isimg{width:min(85vw,calc(85vh*16/9));height:auto;aspect-ratio:16/9;max-height:85vh}
+#pdfmodal.isimg #pdfviewer{display:none}
+#pdfmodal.isimg #imgwrap{display:flex}
+#pdfmodal.isimg #zoombar{display:flex}
+#aidemodal{width:92vw;max-width:1200px;max-height:94vh;overflow:auto}
+#aidemodal[open]{display:flex;flex-direction:column;gap:12px}
+#aidebody{min-height:0}
+#aidevid{align-self:center;width:100%;min-width:0}
+#aidevid h3{margin:0 0 10px;font-size:18px}
+#aidevideo{display:block;width:100%;max-height:calc(94vh - 170px);background:#000;border-radius:6px}
+@media (max-width:800px){#aidebody{grid-template-columns:1fr;overflow:auto}.editrow{display:flex;gap:10px;margin-top:12px;align-items:center}
+.editrow input{width:100%;min-width:0;padding:8px;border:1px solid #bbb}
+.editrow input[type=color]{width:46px;height:36px;padding:2px;flex-shrink:0;cursor:pointer}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.hint{font-size:12px;color:#666}
+
+@media(max-height:750px){body{padding:14px 24px;gap:8px}.panel{padding:8px;gap:7px}}
+@media print{
+  @page{size:A3 landscape;margin:12mm}
+  html,body{height:auto;overflow:visible;background:#fff}
+  body{display:block;padding:0}
+  header{margin-bottom:8mm}
+  #aide{display:none}
+  .panel,.help,.stats,dialog,.weeks{display:none!important}
+  .grid{height:235mm;overflow:visible;border:.3mm solid #555;break-inside:avoid}
+  th,td{border-color:#777}
+  thead .comments{height:auto}
+  .cmc,.cm{background:#fff}
+  .cm{height:auto;font-size:8px;line-height:1.2;padding:1mm}
+  .cm .ct{display:block;-webkit-line-clamp:unset;white-space:normal;max-height:12mm}
+  .cm.narrow .ct{display:block}
+  .cm.narrow .ic,.cm.empty .ct,.cm.empty .ic{display:none!important}
+  *{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<header><h1>PLANNING · RACHID / ERGUN</h1><button id="aide">POURQUOI CE COMPARATIF</button><span id="title"></span></header>
+
+<section class="panel">
+  <div class="row">
+    <div id="tags"></div>
+    <button id="rename">Noms et couleurs des tags</button>
+    <button id="export">Exporter JSON</button>
+    <button id="import">Importer JSON</button>
+    <button onclick="print()">Imprimer</button>
+    <input hidden id="file" type="file" accept="application/json">
+    <div class="years"><button data-y="2025">2025</button><button data-y="2026">2026</button></div>
+  </div>
+  <div class="row">
+    <button id="prev">❮</button>
+    <div id="months"></div>
+    <button id="next">❯</button>
+  </div>
+</section>
+
+<div class="stats" id="stats" aria-label="Statistiques">
+  <div class="sgroup" id="statMonth"></div>
+  <div class="sgroup" id="statTotal"></div>
+  <span id="notice"></span>
+</div>
+
+<main class="grid">
+  <table id="table" aria-label="Planning mensuel">
+    <thead id="head"></thead>
+    <tbody id="body"></tbody>
+  </table>
+</main>
+
+<dialog id="editor">
+  <form id="editform">
+    <h2>Noms et couleurs des tags</h2>
+    <p class="hint">Cliquez sur un carré de couleur pour changer la couleur du tag. Les noms et les couleurs sont enregistrés dans le JSON.</p>
+    <div id="fields"></div>
+    <div class="actions"><button type="button" id="cancel">Annuler</button><button>Enregistrer</button></div>
+  </form>
+</dialog>
+
+<dialog id="cmodal">
+  <form id="cmform">
+    <h2>Commentaire de la semaine</h2>
+    <p class="hint" id="cmrange"></p>
+    <textarea id="cmtext" rows="3" maxlength="120" aria-label="Commentaire de la semaine"></textarea>
+    <div class="cmfoot hint"><span>Visible aussi dans l’autre mois si la semaine est à cheval.</span><span id="cmcount"></span></div>
+    <div class="actions"><button type="button" id="cmcancel">Annuler</button><button>Enregistrer</button></div>
+  </form>
+</dialog>
+
+<dialog id="aidemodal" aria-labelledby="aidetitle">
+  <div id="pdfhead"><h2 id="aidetitle">Pourquoi ce comparatif</h2>
+    <button id="closeaide">Fermer ✕</button></div>
+  <div id="aidebody">
+    <div id="aidevid">
+      <h3>Dès lors que Husein m’a lui-même demandé de ne pas lui parler, comment aurais-je concrètement pu lui pourrir la vie, alors qu’il refuse tout contact avec moi depuis la deuxième semaine de janvier 2025  ?</h3>
+      <video id="aidevideo" controls preload="metadata" src="tuto.mp4">
+      Votre navigateur ne peut pas lire cette vidéo (tuto.mp4).
+    </video>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="pdfmodal" aria-labelledby="pdftitle">
+  <div id="pdfhead"><h2 id="pdftitle"></h2>
+    <div id="zoombar">
+      <button class="zb" id="zout" title="Zoom arrière" aria-label="Zoom arrière">−</button>
+      <span id="zoomval" aria-live="polite">100 %</span>
+      <button class="zb" id="zin" title="Zoom avant" aria-label="Zoom avant">+</button>
+      <button class="zb" id="zoomfit" title="Revoir l’image entière">Ajuster</button>
+    </div>
+    <button id="closepdf">Fermer ✕</button></div>
+  <div class="hint">Si l’aperçu est indisponible : <a id="pdflink" target="_blank" rel="noopener">ouvrir le PDF dans un nouvel onglet</a>.</div>
+  <iframe id="pdfviewer" title="Planning original de la semaine"></iframe>
+  <div id="imgwrap"><img id="imgviewer" alt="Planning original de la semaine"></div>
+</dialog>
+
+<script src="pdf-weeks.js"></script>
+<script src="planning-default.js"></script>
+<script>
+const pdfCode = window.pdfParSemaine || {};
+const $ = id => document.getElementById(id);
+const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const short = ['Jan.','Fév.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
+const ids = ['Rch PN','Rch BOX','Rch CONGÉ','EH TRAV','EH BOX','EH CONGÉ'];
+const defaultColors = {'Rch PN':'#b7d9f7','Rch BOX':'#f7d6a4','Rch CONGÉ':'#d9c4ef','EH TRAV':'#b7dfca','EH BOX':'#a37fd4','EH CONGÉ':'#f4bfc9'};
+const agents = {RACHID:'Rachid', ERGUN:'Ergun'};
+const agentTitle = {RACHID:'Rch', ERGUN:'EH'};
+const hours = [8,9,10,11,12,13,14,15,16,17,18,19,20,21];
+const storeKey = 'planning-rachid-ergun-horaire-v1';
+
+let data = {};
+let labels = Object.fromEntries(ids.map(x => [x, x]));
+let colors = {...defaultColors};
+let pdfs = {};
+let comments = {};
+let cells = {};
+let brush = ids[0], drag = false, erase = false, last = null;
+
+let now = new Date();
+let y = 2025;
+let m = 0;
+
+const pad = n => String(n).padStart(2, '0');
+const isConge = id => typeof id === 'string' && id.endsWith('CONGÉ');
+const noPale = id => isConge(id) || id === 'EH BOX' || id === 'Rch BOX';
+const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const fr = d => d.toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit', year:'numeric'});
+function monday(d) { const t = new Date(d); t.setDate(t.getDate() - (t.getDay() + 6) % 7); return t; }
+function ink(hex) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#222' : '#fff';
+}
+
+// Les fichiers sont des JPG : seule l’extension .pdf devient .jpg, le nom ne change pas.
+function toJpg(p) { return String(p).replace(/\.pdf(?=$|[?#])/i, '.jpg'); }
+
+function safePdf(v) {
+  if (typeof v !== 'string' || !v.trim()) return false;
+  try { return ['http:', 'https:', 'file:'].includes(new URL(v, location.href).protocol); } catch (e) { return false; }
+}
+
+function decode(o) {
+  if (!o || o.version !== 4 || !o.data || typeof o.data !== 'object' || Array.isArray(o.data) || !o.labels) throw Error();
+  const l = {...Object.fromEntries(ids.map(x => [x, x])), ...o.labels}, p = o.pdfParSemaine || {};
+  if (typeof p !== 'object' || Array.isArray(p)) throw Error();
+  if (ids.some(id => typeof l[id] !== 'string' || !l[id].trim() || l[id].length > 24)) throw Error();
+  const col = {...defaultColors};
+  if (o.colors !== undefined) {
+    if (!o.colors || typeof o.colors !== 'object') throw Error();
+    for (const id of ids) {
+      if (o.colors[id] !== undefined) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(o.colors[id])) throw Error();
+        col[id] = o.colors[id];
+      }
+    }
+  }
+  const clean = {}, proof = {};
+  for (const [k, v] of Object.entries(o.data)) {
+    if (!/^(2025|2026)-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-(RACHID|ERGUN)-(0[89]|1[0-9]|2[01]|TITRE)$/.test(k) || !ids.includes(v)) throw Error();
+    clean[k] = v;
+  }
+  for (const [k, v] of Object.entries(p)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== 'object') throw Error();
+    const e = {};
+    for (const a of Object.keys(agents)) {
+      if (v[a] !== undefined) { if (!safePdf(v[a])) throw Error(); e[a] = v[a]; }
+    }
+    proof[k] = e;
+  }
+  let comm = null;
+  if (o.commentaires !== undefined) {
+    const c = o.commentaires;
+    if (!c || typeof c !== 'object' || Array.isArray(c)) throw Error();
+    comm = {};
+    for (const [k, v] of Object.entries(c)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || typeof v !== 'string') throw Error();
+      const t = v.replace(/\s+/g, ' ').trim().slice(0, 120);
+      if (t) comm[k] = t;
+    }
+  }
+  return {data: clean, labels: Object.fromEntries(ids.map(id => [id, l[id]])), colors: col, pdfs: proof, comments: comm};
+}
+
+try {
+  const o = decode(JSON.parse(localStorage.getItem(storeKey) || '{}'));
+  data = o.data; labels = o.labels; colors = o.colors; pdfs = o.pdfs; comments = o.comments || {};
+} catch (e) {
+  // Aucune sauvegarde locale valide : on utilise planning-default.js
+  try {
+    if (window.planningParDefaut) {
+      const o = decode(window.planningParDefaut);
+      data = o.data; labels = o.labels; colors = o.colors; pdfs = o.pdfs; comments = o.comments || {};
+    }
+  } catch (e2) {}
+}
+
+// Les chemins définis dans pdf-weeks.js ont priorité sur ceux du JSON.
+function allPdfs() {
+  const out = {};
+  for (const k of new Set([...Object.keys(pdfs), ...Object.keys(pdfCode)])) {
+    const fromCode = pdfCode[k] && typeof pdfCode[k] === 'object' ? pdfCode[k] : {};
+    const e = {};
+    for (const a of Object.keys(agents)) {
+      if (safePdf(fromCode[a])) e[a] = fromCode[a];
+      else if (pdfs[k] && safePdf(pdfs[k][a])) e[a] = pdfs[k][a];
+    }
+    out[k] = e;
+  }
+  return out;
+}
+function payload() { return {version: 4, labels, colors, data, pdfParSemaine: allPdfs(), commentaires: comments}; }
+function save() {
+  try { localStorage.setItem(storeKey, JSON.stringify(payload())); $('notice').textContent = ''; }
+  catch (e) { $('notice').textContent = 'Stockage indisponible : exportez les données'; }
+}
+
+function tags() {
+  $('tags').replaceChildren();
+  for (const id of [...ids, '']) {
+    const b = document.createElement('button');
+    b.className = brush === id ? 'selected' : '';
+    b.textContent = id ? labels[id] : 'Gomme';
+    b.style.background = id ? colors[id] : '#eee';
+    b.style.color = id ? ink(colors[id]) : '#222';
+    b.onclick = () => { brush = id; tags(); };
+    $('tags').append(b);
+  }
+}
+
+function setCell(td, v) {
+  td.style.background = v ? colors[v] : '';
+  td.style.color = v ? ink(colors[v]) : '';
+  td.title = td.dataset.label + ' : ' + (v ? labels[v] : 'vide');
+}
+
+// Période commune : Rachid et Ergun tous deux présents (hors congé) -> couleurs pâles (affichage seulement)
+function pale(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = c => Math.round(c + (255 - c) * 0.6);
+  return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(c => mix(c).toString(16).padStart(2, '0')).join('');
+}
+function common(day) {
+  for (const h of hours) {
+    const rk = day + '-RACHID-' + pad(h), ek = day + '-ERGUN-' + pad(h);
+    const a = data[rk], b = data[ek];
+    if (!cells[rk] || !cells[ek]) continue;
+    setCell(cells[rk], a || ''); setCell(cells[ek], b || '');
+    if (!a || !b || noPale(a) || noPale(b)) continue;
+    for (const [td, v] of [[cells[rk], a], [cells[ek], b]]) {
+      const c = pale(colors[v]);
+      td.style.background = c;
+      td.style.color = ink(c);
+    }
+  }
+}
+
+// Statistiques (calculées depuis les données du planning, rien n'est enregistré)
+// Jour en commun : au moins 1 h où Rachid et Ergun sont tous deux présents (ni congé, ni BOX) = les cases pâles.
+// Jour presté : jour où l'agent a au moins une case qui n'est pas un congé (BOX compte comme presté).
+function monthStats(yy, mm) {
+  const n = new Date(yy, mm + 1, 0).getDate();
+  const s = {common: 0, rch: 0, eh: 0};
+  for (let d = 1; d <= n; d++) {
+    const day = yy + '-' + pad(mm + 1) + '-' + pad(d);
+    let c = false, r = false, e = false;
+    for (const hh of hours) {
+      const a = data[day + '-RACHID-' + pad(hh)], b = data[day + '-ERGUN-' + pad(hh)];
+      if (a && !isConge(a)) r = true;
+      if (b && !isConge(b)) e = true;
+      if (a && b && !noPale(a) && !noPale(b)) c = true;
+    }
+    if (c) s.common++;
+    if (r) s.rch++;
+    if (e) s.eh++;
+  }
+  return s;
+}
+function statChip(swatch, label, value, main) {
+  const c = document.createElement('span'); c.className = 'stat' + (main ? ' main' : '');
+  const i = document.createElement('i'); i.style.background = swatch;
+  const t = document.createElement('span'); t.textContent = label;
+  const b = document.createElement('b'); b.textContent = value;
+  c.append(i, t, b);
+  return c;
+}
+function groupName(box, text) {
+  const nm = document.createElement('span'); nm.className = 'sname'; nm.textContent = text;
+  box.replaceChildren(nm);
+}
+function renderStats() {
+  const mix = 'linear-gradient(90deg,' + pale(colors['Rch PN']) + ' 50%,' + pale(colors['EH TRAV']) + ' 50%)';
+  const cur = monthStats(y, m);
+  groupName($('statMonth'), months[m] + ' ' + y);
+  $('statMonth').append(statChip(mix, 'Jours en commun', cur.common));
+  const t = {common: 0, rch: 0, eh: 0};
+  for (let yy = 2025; yy <= y; yy++) {
+    for (let mm = 0; mm <= (yy === y ? m : 11); mm++) {
+      const s = monthStats(yy, mm);
+      t.common += s.common; t.rch += s.rch; t.eh += s.eh;
+    }
+  }
+  groupName($('statTotal'), 'Cumul au ' + fr(new Date(y, m + 1, 0)));
+  $('statTotal').append(
+    statChip(mix, 'Jours en commun cumulés depuis le 01/01/2025', t.common, true)
+  );
+}
+
+function paint(td, del) {
+  const key = td.dataset.key, cur = data[key] || '', v = del ? '' : brush;
+  const isTitle = key.endsWith('-TITRE');
+  const day = key.slice(0, key.lastIndexOf('-'));
+  const wholeDay = !isTitle && (del ? isConge(cur) : isConge(v));
+  const targets = wholeDay ? hours.map(h => cells[day + '-' + pad(h)]) : [td];
+  for (const t of targets) {
+    if (v) data[t.dataset.key] = v; else delete data[t.dataset.key];
+    setCell(t, v);
+  }
+  common(day.slice(0, 10));
+  renderStats();
+  save();
+}
+
+function openPdf(k, start, a) {
+  const path0 = (allPdfs()[k] || {})[a];
+  if (!safePdf(path0)) return;
+  const path = toJpg(path0);
+  const end = new Date(start); end.setDate(end.getDate() + 6);
+  $('pdftitle').textContent = 'Planning original · ' + agents[a] + ' · ' + fr(start) + ' au ' + fr(end);
+  $('pdfmodal').classList.add('isimg');
+  $('pdflink').textContent = 'ouvrir l’image dans un nouvel onglet';
+  zi = 0; $('imgviewer').style.width = '';
+  $('imgviewer').src = path;
+  $('pdflink').href = path;
+  $('pdfmodal').showModal();
+  $('imgwrap').scrollTo(0, 0);
+  zoomUi(); sizeImg();
+}
+// Fiche mensuelle HRA : un fichier par mois (liste window.pdfHRA dans pdf-weeks.js)
+const pdfHra = window.pdfHRA && typeof window.pdfHRA === 'object' ? window.pdfHRA : {};
+function openHra(path0, label) {
+  if (!safePdf(path0)) return;
+  const path = toJpg(path0);
+  $('pdftitle').textContent = 'HRA · ' + label;
+  $('pdfmodal').classList.add('isimg');
+  $('pdflink').textContent = 'ouvrir l’image dans un nouvel onglet';
+  zi = 0; $('imgviewer').style.width = '';
+  $('imgviewer').src = path;
+  $('pdflink').href = path;
+  $('pdfmodal').showModal();
+  $('imgwrap').scrollTo(0, 0);
+  zoomUi(); sizeImg();
+}
+$('aide').onclick = () => $('aidemodal').showModal();
+$('closeaide').onclick = () => $('aidemodal').close();
+$('aidemodal').addEventListener('close', () => $('aidevideo').pause());
+$('aidemodal').onclick = e => {
+  if (e.target === $('aidemodal')) {
+    const r = e.target.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) e.target.close();
+  }
+};
+const ZOOMS = [1, 1.5, 2, 3, 4, 6];
+let zi = 0;
+function zoomUi() {
+  $('zoomval').textContent = Math.round(ZOOMS[zi] * 100) + ' %';
+  $('zout').disabled = $('zoomfit').disabled = zi === 0;
+  $('zin').disabled = zi === ZOOMS.length - 1;
+}
+function sizeImg() {
+  const im = $('imgviewer'), w = $('imgwrap');
+  if (!im.naturalWidth || !w.clientWidth) return;
+  const fit = Math.min(w.clientWidth, w.clientHeight * im.naturalWidth / im.naturalHeight);
+  im.style.width = Math.floor(fit * ZOOMS[zi]) + 'px';
+}
+function setZoom(n) {
+  n = Math.max(0, Math.min(ZOOMS.length - 1, n));
+  if (n === zi) return;
+  const w = $('imgwrap');
+  const cx = (w.scrollLeft + w.clientWidth / 2) / w.scrollWidth, cy = (w.scrollTop + w.clientHeight / 2) / w.scrollHeight;
+  zi = n; zoomUi(); sizeImg();
+  w.scrollLeft = cx * w.scrollWidth - w.clientWidth / 2;
+  w.scrollTop = cy * w.scrollHeight - w.clientHeight / 2;
+}
+$('zin').onclick = () => setZoom(zi + 1);
+$('zout').onclick = () => setZoom(zi - 1);
+$('zoomfit').onclick = () => setZoom(0);
+$('imgviewer').addEventListener('load', sizeImg);
+window.addEventListener('resize', sizeImg);
+$('closepdf').onclick = () => $('pdfmodal').close();
+$('pdfmodal').addEventListener('close', () => {
+  $('pdfviewer').src = 'about:blank';
+  $('imgviewer').removeAttribute('src');
+  $('pdfviewer').title = 'Planning original de la semaine';
+});
+$('pdfmodal').onclick = e => {
+  if (e.target === $('pdfmodal')) {
+    const r = e.target.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) e.target.close();
+  }
+};
+
+months.forEach((v, i) => {
+  const b = document.createElement('button');
+  b.textContent = short[i]; b.title = v;
+  b.onclick = () => { m = i; render(); };
+  $('months').append(b);
+});
+document.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { y = +b.dataset.y; render(); });
+
+function render() {
+  $('title').textContent = months[m] + ' ' + y;
+  document.title = 'Planning — ' + months[m] + ' ' + y;
+  Array.from($('months').children).forEach((b, i) => b.classList.toggle('on', i === m));
+  document.querySelectorAll('[data-y]').forEach(b => b.classList.toggle('on', +b.dataset.y === y));
+  $('prev').disabled = y === 2025 && m === 0;
+  $('next').disabled = y === 2026 && m === 11;
+
+  const n = new Date(y, m + 1, 0).getDate();
+  const pdf = allPdfs();
+  const names = ['di','lu','ma','me','je','ve','sa'];
+  cells = {};
+
+  const cmRow = document.createElement('tr');
+  cmRow.className = 'comments';
+  const c0 = document.createElement('th'); c0.className = 'hour'; cmRow.append(c0);
+  const weeks = document.createElement('tr');
+  weeks.className = 'weeks';
+  const w0 = document.createElement('th'); w0.className = 'hour';
+  const hraPath = pdfHra[y + '-' + pad(m + 1)], hraLabel = months[m] + ' ' + y;
+  const hraBox = document.createElement('div'); hraBox.className = 'wbs';
+  const hraBtn = document.createElement('button'); hraBtn.className = 'wb hra blink'; hraBtn.textContent = 'HRA';
+  hraBtn.disabled = !safePdf(hraPath);
+  hraBtn.title = 'Fiche mensuelle HRA · ' + hraLabel + (hraBtn.disabled ? ' — aucun PDF (voir pdf-weeks.js)' : '');
+  hraBtn.onclick = () => openHra(hraPath, hraLabel);
+  hraBox.append(hraBtn); w0.append(hraBox); weeks.append(w0);
+  for (let d = 1; d <= n;) {
+    const date = new Date(y, m, d), start = monday(date), k = iso(start);
+    const count = Math.min(n - d + 1, 7 - ((date.getDay() + 6) % 7));
+    const th = document.createElement('th');
+    th.colSpan = count * 2; th.className = 'end';
+    const box = document.createElement('div'); box.className = 'wbs';
+    for (const a of Object.keys(agents)) {
+      const name = agents[a], path = (pdf[k] || {})[a], has = safePdf(path);
+      const b = document.createElement('button');
+      b.className = 'wb';
+      b.textContent = count >= 3 ? 'Horaire ' + name : count === 2 ? 'Horaire ' + name[0] : name[0];
+      b.disabled = !has;
+      b.title = name + ' · semaine du ' + fr(start) + (has ? ' — ouvrir le planning original' : ' — aucune image (voir pdf-weeks.js)');
+      b.onclick = () => openPdf(k, start, a);
+      box.append(b);
+    }
+    th.append(box); weeks.append(th);
+    const cth = document.createElement('th');
+    cth.colSpan = count * 2; cth.className = 'end cmc';
+    const txt = comments[k] || '';
+    const cb = document.createElement('button');
+    cb.className = 'cm' + (count < 3 ? ' narrow' : '') + (txt ? '' : ' empty');
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = txt || '+ Commentaire';
+    const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = txt ? '✎' : '+';
+    cb.append(ct, ic);
+    cb.title = txt ? txt + ' — cliquer pour modifier' : 'Ajouter un commentaire · semaine du ' + fr(start);
+    cb.onclick = () => openComment(k, start);
+    cth.append(cb); cmRow.append(cth);
+    d += count;
+  }
+
+  const days = document.createElement('tr');
+  days.className = 'days';
+  const d0 = document.createElement('th'); d0.className = 'hour'; days.append(d0);
+  const ag = document.createElement('tr');
+  ag.className = 'agents';
+  const a0 = document.createElement('th'); a0.className = 'hour'; ag.append(a0);
+  for (let d = 1; d <= n; d++) {
+    const w = new Date(y, m, d).getDay();
+    const th = document.createElement('th');
+    th.colSpan = 2;
+    th.className = w === 0 ? 'end' : '';
+    th.innerHTML = names[w] + '<b>' + pad(d) + '</b>';
+    days.append(th);
+    for (const a of Object.keys(agents)) {
+      const t = document.createElement('th');
+      t.className = 'agent cell' + (a === 'ERGUN' && w === 0 ? ' end' : '');
+      t.textContent = agentTitle[a];
+      const key = [y, pad(m + 1), pad(d), a, 'TITRE'].join('-');
+      t.dataset.key = key;
+      t.dataset.label = agents[a] + ' · ' + d + ' ' + months[m] + ' ' + y + ' · titre de colonne';
+      cells[key] = t;
+      setCell(t, data[key] || '');
+      ag.append(t);
+    }
+  }
+  $('head').replaceChildren(cmRow, weeks, days, ag);
+
+  $('body').replaceChildren();
+  for (const h of hours) {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.scope = 'row'; th.className = 'hour'; th.textContent = h + 'h';
+    tr.append(th);
+    for (let d = 1; d <= n; d++) {
+      const w = new Date(y, m, d).getDay();
+      for (const a of Object.keys(agents)) {
+        const td = document.createElement('td');
+        td.className = 'cell' + (a === 'RACHID' ? ' r' : '') + (a === 'ERGUN' ? ' eh' : '') + (a === 'ERGUN' && w === 0 ? ' end' : '');
+        const key = [y, pad(m + 1), pad(d), a, pad(h)].join('-');
+        td.dataset.key = key;
+        td.dataset.label = agents[a] + ' · ' + d + ' ' + months[m] + ' ' + y + ' · ' + h + 'h';
+        cells[key] = td;
+        setCell(td, data[key] || '');
+        tr.append(td);
+      }
+    }
+    $('body').append(tr);
+  }
+  for (let d = 1; d <= n; d++) common([y, pad(m + 1), pad(d)].join('-'));
+  renderStats();
+}
+
+const table = $('table');
+table.addEventListener('pointerdown', e => {
+  const td = e.target.closest('.cell');
+  if (!td || (e.button !== 0 && e.button !== 2)) return;
+  e.preventDefault();
+  drag = true; erase = e.button === 2 || brush === ''; last = td;
+  paint(td, erase);
+});
+document.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const td = el && el.closest('.cell');
+  if (td && td !== last && table.contains(td)) { last = td; paint(td, erase); }
+});
+table.addEventListener('contextmenu', e => e.preventDefault());
+const stop = () => { drag = false; last = null; };
+document.addEventListener('pointerup', stop);
+document.addEventListener('pointercancel', stop);
+window.addEventListener('blur', stop);
+
+function move(v) {
+  m += v;
+  if (m < 0) { m = 11; y--; }
+  if (m > 11) { m = 0; y++; }
+  render();
+}
+$('prev').onclick = () => move(-1);
+$('next').onclick = () => move(1);
+
+$('rename').onclick = () => {
+  $('fields').replaceChildren();
+  ids.forEach((id, i) => {
+    const row = document.createElement('label'); row.className = 'editrow';
+    const col = document.createElement('input');
+    col.type = 'color'; col.value = colors[id]; col.dataset.cid = id;
+    col.setAttribute('aria-label', 'Couleur du tag ' + (i + 1));
+    const input = document.createElement('input');
+    input.value = labels[id]; input.required = true; input.maxLength = 24; input.dataset.id = id;
+    input.setAttribute('aria-label', 'Nom du tag ' + (i + 1));
+    row.append(col, input); $('fields').append(row);
+  });
+  $('editor').showModal();
+};
+$('cancel').onclick = () => $('editor').close();
+$('editform').onsubmit = e => {
+  e.preventDefault();
+  const inputs = [...$('fields').querySelectorAll('input[data-id]')];
+  if (inputs.some(i => !i.value.trim())) return;
+  inputs.forEach(i => labels[i.dataset.id] = i.value.trim());
+  $('fields').querySelectorAll('input[type=color]').forEach(c => colors[c.dataset.cid] = c.value);
+  save(); tags(); render(); $('editor').close();
+};
+
+$('export').onclick = () => {
+  const u = URL.createObjectURL(new Blob([JSON.stringify(payload(), null, 2)], {type: 'application/json'}));
+  const a = document.createElement('a');
+  a.href = u; a.download = 'planning-2025-2026.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(u), 1000);
+};
+$('import').onclick = () => $('file').click();
+$('file').onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const o = decode(JSON.parse(await f.text()));
+    if (confirm('Remplacer le planning, les noms et couleurs de tags, les liens PDF et les commentaires (s’ils sont dans le fichier) par cette sauvegarde ?')) {
+      data = o.data; labels = o.labels; colors = o.colors; pdfs = o.pdfs;
+      if (o.comments) comments = o.comments;
+      save(); tags(); render();
+    }
+  } catch (err) { alert('Sauvegarde non valide : le fichier doit être au format horaire de ce planning.'); }
+  e.target.value = '';
+};
+
+let cmKey = '';
+function openComment(k, start) {
+  const end = new Date(start); end.setDate(end.getDate() + 6);
+  cmKey = k;
+  $('cmrange').textContent = 'Du ' + fr(start) + ' au ' + fr(end);
+  $('cmtext').value = comments[k] || '';
+  cmCount();
+  $('cmodal').showModal();
+  $('cmtext').focus();
+}
+function cmCount() { $('cmcount').textContent = $('cmtext').value.length + ' / 120'; }
+$('cmtext').addEventListener('input', cmCount);
+$('cmtext').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('cmform').requestSubmit(); }
+});
+$('cmcancel').onclick = () => $('cmodal').close();
+$('cmform').onsubmit = e => {
+  e.preventDefault();
+  const v = $('cmtext').value.replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (v) comments[cmKey] = v; else delete comments[cmKey];
+  save(); render(); $('cmodal').close();
+};
+
+tags();
+render();
+</script>
+</body>
+</html>

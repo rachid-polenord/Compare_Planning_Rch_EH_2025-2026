@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Convertisseur JSON vers JS</title>
+  <style>
+    body {
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+      font-family: Arial, sans-serif;
+      line-height: 1.5;
+      color: #222;
+    }
+
+    .zone {
+      margin: 24px 0;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    button {
+      margin-top: 16px;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+
+    #message {
+      margin-top: 16px;
+      white-space: pre-wrap;
+    }
+
+    .erreur {
+      color: #b00020;
+    }
+
+    .succes {
+      color: #18783a;
+    }
+  </style>
+</head>
+<body>
+  <h1>Convertisseur JSON vers JS</h1>
+  <p>
+    Sélectionne ton fichier JSON. Il sera converti en fichier JavaScript
+    contenant <code>window.planningParDefaut = ...;</code>.
+  </p>
+
+  <div class="zone">
+    <label for="fichierJson">Fichier JSON à convertir :</label><br>
+    <input
+      id="fichierJson"
+      type="file"
+      accept=".json,application/json"
+    >
+
+    <br>
+    <button id="convertir" type="button">Convertir et télécharger le .js</button>
+
+    <div id="message" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+    const champFichier = document.getElementById("fichierJson");
+    const bouton = document.getElementById("convertir");
+    const message = document.getElementById("message");
+
+    bouton.addEventListener("click", async () => {
+      message.textContent = "";
+      message.className = "";
+
+      const fichier = champFichier.files[0];
+
+      if (!fichier) {
+        afficherMessage("Choisis d’abord un fichier JSON.", "erreur");
+        return;
+      }
+
+      try {
+        const contenu = await fichier.text();
+        const objet = JSON.parse(contenu);
+
+        if (
+          objet === null ||
+          typeof objet !== "object" ||
+          Array.isArray(objet)
+        ) {
+          throw new Error("Le contenu JSON doit être un objet.");
+        }
+
+        const jsonFormate = JSON.stringify(objet, null, 2);
+        const contenuJs = `window.planningParDefaut = ${jsonFormate};\n`;
+
+        const blob = new Blob([contenuJs], {
+          type: "text/javascript;charset=utf-8"
+        });
+
+        const url = URL.createObjectURL(blob);
+        const lien = document.createElement("a");
+
+        const nomBase = fichier.name.replace(/\.json$/i, "") || "planning";
+        lien.href = url;
+        lien.download = `${nomBase}.js`;
+        document.body.appendChild(lien);
+        lien.click();
+        lien.remove();
+
+        URL.revokeObjectURL(url);
+        afficherMessage("Conversion réussie : le fichier .js a été téléchargé.", "succes");
+      } catch (erreur) {
+        afficherMessage(
+          `Impossible de convertir le fichier : ${erreur.message}`,
+          "erreur"
+        );
+      }
+    });
+
+    function afficherMessage(texte, classe) {
+      message.textContent = texte;
+      message.className = classe;
+    }
+  </script>
+</body>
+</html>
