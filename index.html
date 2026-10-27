@@ -220,7 +220,14 @@ const $ = id => document.getElementById(id);
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const short = ['Jan.','Fév.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
 const ids = ['Rch PN','Rch BOX','Rch CONGÉ','EH TRAV','EH BOX','EH CONGÉ'];
-const defaultColors = {'Rch PN':'#b7d9f7','Rch BOX':'#f7d6a4','Rch CONGÉ':'#d9c4ef','EH TRAV':'#b7dfca','EH BOX':'#a37fd4','EH CONGÉ':'#f4bfc9'};
+const defaultColors = {
+  'Rch PN':'#b7d9f7',
+  'Rch BOX':'#f7d6a4',
+  'Rch CONGÉ':'#d9c4ef',
+  'EH TRAV':'#b7dfca',
+  'EH BOX':'#a37fd4',
+  'EH CONGÉ':'#f4bfc9'
+};
 const agents = {RACHID:'Rachid', ERGUN:'Ergun'};
 const agentTitle = {RACHID:'Rch', ERGUN:'EH'};
 const hours = [8,9,10,11,12,13,14,15,16,17,18,19,20,21];
@@ -243,111 +250,183 @@ const isConge = id => typeof id === 'string' && id.endsWith('CONGÉ');
 const noPale = id => isConge(id) || id === 'EH BOX' || id === 'Rch BOX';
 const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const fr = d => d.toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit', year:'numeric'});
-function monday(d) { const t = new Date(d); t.setDate(t.getDate() - (t.getDay() + 6) % 7); return t; }
+
+function monday(d) {
+  const t = new Date(d);
+  t.setDate(t.getDate() - (t.getDay() + 6) % 7);
+  return t;
+}
+
 function ink(hex) {
-  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const n = parseInt(hex.slice(1), 16);
+  const r = n >> 16, g = (n >> 8) & 255, b = n & 255;
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#222' : '#fff';
 }
 
-// Les fichiers sont des JPG : seule l’extension .pdf devient .jpg, le nom ne change pas.
-function toJpg(p) { return String(p).replace(/\.pdf(?=$|[?#])/i, '.jpg'); }
+function toJpg(p) {
+  return String(p).replace(/\.pdf(?=$|[?#])/i, '.jpg');
+}
 
 function safePdf(v) {
   if (typeof v !== 'string' || !v.trim()) return false;
-  try { return ['http:', 'https:', 'file:'].includes(new URL(v, location.href).protocol); } catch (e) { return false; }
+  try {
+    return ['http:', 'https:', 'file:'].includes(new URL(v, location.href).protocol);
+  } catch (e) {
+    return false;
+  }
 }
 
 function decode(o) {
-  if (!o || o.version !== 4 || !o.data || typeof o.data !== 'object' || Array.isArray(o.data) || !o.labels) throw Error();
-  const l = {...Object.fromEntries(ids.map(x => [x, x])), ...o.labels}, p = o.pdfParSemaine || {};
-  if (typeof p !== 'object' || Array.isArray(p)) throw Error();
-  if (ids.some(id => typeof l[id] !== 'string' || !l[id].trim() || l[id].length > 24)) throw Error();
+  if (!o || o.version !== 4 || !o.data || typeof o.data !== 'object' || Array.isArray(o.data) || !o.labels) {
+    throw new Error('Structure planning-default.js invalide');
+  }
+
+  const l = {...Object.fromEntries(ids.map(x => [x, x])), ...o.labels};
+  const p = o.pdfParSemaine || {};
+
+  if (typeof p !== 'object' || Array.isArray(p)) throw new Error('pdfParSemaine invalide');
+
+  if (ids.some(id => typeof l[id] !== 'string' || !l[id].trim() || l[id].length > 24)) {
+    throw new Error('Nom de tag invalide');
+  }
+
   const col = {...defaultColors};
+
   if (o.colors !== undefined) {
-    if (!o.colors || typeof o.colors !== 'object') throw Error();
+    if (!o.colors || typeof o.colors !== 'object') throw new Error('Couleurs invalides');
+
     for (const id of ids) {
       if (o.colors[id] !== undefined) {
-        if (!/^#[0-9a-fA-F]{6}$/.test(o.colors[id])) throw Error();
+        if (!/^#[0-9a-fA-F]{6}$/.test(o.colors[id])) throw new Error('Couleur invalide');
         col[id] = o.colors[id];
       }
     }
   }
-  const clean = {}, proof = {};
+
+  const clean = {};
+
   for (const [k, v] of Object.entries(o.data)) {
-    if (!/^(2025|2026)-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-(RACHID|ERGUN)-(0[89]|1[0-9]|2[01]|TITRE)$/.test(k) || !ids.includes(v)) throw Error();
+    if (!/^(2025|2026)-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-(RACHID|ERGUN)-(0[89]|1[0-9]|2[01]|TITRE)$/.test(k)) {
+      throw new Error('Clé de planning invalide : ' + k);
+    }
+    if (!ids.includes(v)) throw new Error('Tag inconnu : ' + v);
     clean[k] = v;
   }
+
+  const proof = {};
+
   for (const [k, v] of Object.entries(p)) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== 'object') throw Error();
-    const e = {};
-    for (const a of Object.keys(agents)) {
-      if (v[a] !== undefined) { if (!safePdf(v[a])) throw Error(); e[a] = v[a]; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== 'object') {
+      throw new Error('PDF hebdomadaire invalide : ' + k);
     }
+
+    const e = {};
+
+    for (const a of Object.keys(agents)) {
+      if (v[a] !== undefined) {
+        if (!safePdf(v[a])) throw new Error('Lien PDF invalide : ' + v[a]);
+        e[a] = v[a];
+      }
+    }
+
     proof[k] = e;
   }
-  let comm = null;
+
+  let comm = {};
+
   if (o.commentaires !== undefined) {
     const c = o.commentaires;
-    if (!c || typeof c !== 'object' || Array.isArray(c)) throw Error();
-    comm = {};
+
+    if (!c || typeof c !== 'object' || Array.isArray(c)) throw new Error('Commentaires invalides');
+
     for (const [k, v] of Object.entries(c)) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || typeof v !== 'string') throw Error();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || typeof v !== 'string') {
+        throw new Error('Commentaire invalide : ' + k);
+      }
+
       const t = v.replace(/\s+/g, ' ').trim().slice(0, 120);
       if (t) comm[k] = t;
     }
   }
-  return {data: clean, labels: Object.fromEntries(ids.map(id => [id, l[id]])), colors: col, pdfs: proof, comments: comm};
+
+  return {
+    data: clean,
+    labels: Object.fromEntries(ids.map(id => [id, l[id]])),
+    colors: col,
+    pdfs: proof,
+    comments: comm
+  };
 }
 
-// planning-default.js a toujours la priorité.
-data = {};
-labels = Object.fromEntries(ids.map(x => [x, x]));
-colors = {...defaultColors};
-pdfs = {};
-comments = {};
-
+// IMPORTANT : planning-default.js a toujours la priorité.
+// localStorage n'est utilisé que pour enregistrer temporairement les modifications.
 try {
   if (window.planningParDefaut) {
     const o = decode(window.planningParDefaut);
+
     data = o.data;
     labels = o.labels;
     colors = o.colors;
     pdfs = o.pdfs;
     comments = o.comments || {};
+  } else {
+    console.error('planning-default.js n’est pas chargé ou ne définit pas window.planningParDefaut.');
   }
 } catch (e) {
-  console.error('planning-default.js invalide ou incompatible.', e);
+  console.error('Erreur dans planning-default.js :', e);
 }
 
-// Les chemins définis dans pdf-weeks.js ont priorité sur ceux du JSON.
 function allPdfs() {
   const out = {};
+
   for (const k of new Set([...Object.keys(pdfs), ...Object.keys(pdfCode)])) {
     const fromCode = pdfCode[k] && typeof pdfCode[k] === 'object' ? pdfCode[k] : {};
     const e = {};
+
     for (const a of Object.keys(agents)) {
       if (safePdf(fromCode[a])) e[a] = fromCode[a];
       else if (pdfs[k] && safePdf(pdfs[k][a])) e[a] = pdfs[k][a];
     }
+
     out[k] = e;
   }
+
   return out;
 }
-function payload() { return {version: 4, labels, colors, data, pdfParSemaine: allPdfs(), commentaires: comments}; }
+
+function payload() {
+  return {
+    version: 4,
+    labels,
+    colors,
+    data,
+    pdfParSemaine: allPdfs(),
+    commentaires: comments
+  };
+}
+
 function save() {
-  try { localStorage.setItem(storeKey, JSON.stringify(payload())); $('notice').textContent = ''; }
-  catch (e) { $('notice').textContent = 'Stockage indisponible : exportez les données'; }
+  try {
+    localStorage.setItem(storeKey, JSON.stringify(payload()));
+    $('notice').textContent = '';
+  } catch (e) {
+    $('notice').textContent = 'Stockage indisponible : exportez les données';
+  }
 }
 
 function tags() {
   $('tags').replaceChildren();
+
   for (const id of [...ids, '']) {
     const b = document.createElement('button');
     b.className = brush === id ? 'selected' : '';
     b.textContent = id ? labels[id] : 'Gomme';
     b.style.background = id ? colors[id] : '#eee';
     b.style.color = id ? ink(colors[id]) : '#222';
-    b.onclick = () => { brush = id; tags(); };
+    b.onclick = () => {
+      brush = id;
+      tags();
+    };
     $('tags').append(b);
   }
 }
@@ -358,19 +437,28 @@ function setCell(td, v) {
   td.title = td.dataset.label + ' : ' + (v ? labels[v] : 'vide');
 }
 
-// Période commune : Rachid et Ergun tous deux présents (hors congé) -> couleurs pâles (affichage seulement)
 function pale(hex) {
   const n = parseInt(hex.slice(1), 16);
   const mix = c => Math.round(c + (255 - c) * 0.6);
-  return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(c => mix(c).toString(16).padStart(2, '0')).join('');
+  return '#' + [n >> 16, (n >> 8) & 255, n & 255]
+    .map(c => mix(c).toString(16).padStart(2, '0'))
+    .join('');
 }
+
 function common(day) {
   for (const h of hours) {
-    const rk = day + '-RACHID-' + pad(h), ek = day + '-ERGUN-' + pad(h);
-    const a = data[rk], b = data[ek];
+    const rk = day + '-RACHID-' + pad(h);
+    const ek = day + '-ERGUN-' + pad(h);
+    const a = data[rk];
+    const b = data[ek];
+
     if (!cells[rk] || !cells[ek]) continue;
-    setCell(cells[rk], a || ''); setCell(cells[ek], b || '');
+
+    setCell(cells[rk], a || '');
+    setCell(cells[ek], b || '');
+
     if (!a || !b || noPale(a) || noPale(b)) continue;
+
     for (const [td, v] of [[cells[rk], a], [cells[ek], b]]) {
       const c = pale(colors[v]);
       td.style.background = c;
@@ -379,51 +467,73 @@ function common(day) {
   }
 }
 
-// Statistiques (calculées depuis les données du planning, rien n'est enregistré)
-// Jour en commun : au moins 1 h où Rachid et Ergun sont tous deux présents (ni congé, ni BOX) = les cases pâles.
-// Jour presté : jour où l'agent a au moins une case qui n'est pas un congé (BOX compte comme presté).
 function monthStats(yy, mm) {
   const n = new Date(yy, mm + 1, 0).getDate();
   const s = {common: 0, rch: 0, eh: 0};
+
   for (let d = 1; d <= n; d++) {
     const day = yy + '-' + pad(mm + 1) + '-' + pad(d);
     let c = false, r = false, e = false;
+
     for (const hh of hours) {
-      const a = data[day + '-RACHID-' + pad(hh)], b = data[day + '-ERGUN-' + pad(hh)];
+      const a = data[day + '-RACHID-' + pad(hh)];
+      const b = data[day + '-ERGUN-' + pad(hh)];
+
       if (a && !isConge(a)) r = true;
       if (b && !isConge(b)) e = true;
       if (a && b && !noPale(a) && !noPale(b)) c = true;
     }
+
     if (c) s.common++;
     if (r) s.rch++;
     if (e) s.eh++;
   }
+
   return s;
 }
+
 function statChip(swatch, label, value, main) {
-  const c = document.createElement('span'); c.className = 'stat' + (main ? ' main' : '');
-  const i = document.createElement('i'); i.style.background = swatch;
-  const t = document.createElement('span'); t.textContent = label;
-  const b = document.createElement('b'); b.textContent = value;
+  const c = document.createElement('span');
+  c.className = 'stat' + (main ? ' main' : '');
+
+  const i = document.createElement('i');
+  i.style.background = swatch;
+
+  const t = document.createElement('span');
+  t.textContent = label;
+
+  const b = document.createElement('b');
+  b.textContent = value;
+
   c.append(i, t, b);
   return c;
 }
+
 function groupName(box, text) {
-  const nm = document.createElement('span'); nm.className = 'sname'; nm.textContent = text;
+  const nm = document.createElement('span');
+  nm.className = 'sname';
+  nm.textContent = text;
   box.replaceChildren(nm);
 }
+
 function renderStats() {
   const mix = 'linear-gradient(90deg,' + pale(colors['Rch PN']) + ' 50%,' + pale(colors['EH TRAV']) + ' 50%)';
   const cur = monthStats(y, m);
+
   groupName($('statMonth'), months[m] + ' ' + y);
   $('statMonth').append(statChip(mix, 'Jours en commun', cur.common));
+
   const t = {common: 0, rch: 0, eh: 0};
+
   for (let yy = 2025; yy <= y; yy++) {
     for (let mm = 0; mm <= (yy === y ? m : 11); mm++) {
       const s = monthStats(yy, mm);
-      t.common += s.common; t.rch += s.rch; t.eh += s.eh;
+      t.common += s.common;
+      t.rch += s.rch;
+      t.eh += s.eh;
     }
   }
+
   groupName($('statTotal'), 'Cumul au ' + fr(new Date(y, m + 1, 0)));
   $('statTotal').append(
     statChip(mix, 'Jours en commun cumulés depuis le 01/01/2025', t.common, true)
@@ -431,15 +541,20 @@ function renderStats() {
 }
 
 function paint(td, del) {
-  const key = td.dataset.key, cur = data[key] || '', v = del ? '' : brush;
+  const key = td.dataset.key;
+  const cur = data[key] || '';
+  const v = del ? '' : brush;
   const isTitle = key.endsWith('-TITRE');
   const day = key.slice(0, key.lastIndexOf('-'));
   const wholeDay = !isTitle && (del ? isConge(cur) : isConge(v));
   const targets = wholeDay ? hours.map(h => cells[day + '-' + pad(h)]) : [td];
+
   for (const t of targets) {
-    if (v) data[t.dataset.key] = v; else delete data[t.dataset.key];
+    if (v) data[t.dataset.key] = v;
+    else delete data[t.dataset.key];
     setCell(t, v);
   }
+
   common(day.slice(0, 10));
   renderStats();
   save();
@@ -448,95 +563,150 @@ function paint(td, del) {
 function openPdf(k, start, a) {
   const path0 = (allPdfs()[k] || {})[a];
   if (!safePdf(path0)) return;
+
   const path = toJpg(path0);
-  const end = new Date(start); end.setDate(end.getDate() + 6);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
   $('pdftitle').textContent = 'Planning original · ' + agents[a] + ' · ' + fr(start) + ' au ' + fr(end);
   $('pdfmodal').classList.add('isimg');
   $('pdflink').textContent = 'ouvrir l’image dans un nouvel onglet';
-  zi = 0; $('imgviewer').style.width = '';
+
+  zi = 0;
+  $('imgviewer').style.width = '';
   $('imgviewer').src = path;
   $('pdflink').href = path;
+
   $('pdfmodal').showModal();
   $('imgwrap').scrollTo(0, 0);
-  zoomUi(); sizeImg();
+  zoomUi();
+  sizeImg();
 }
-// Fiche mensuelle HRA : un fichier par mois (liste window.pdfHRA dans pdf-weeks.js)
+
 const pdfHra = window.pdfHRA && typeof window.pdfHRA === 'object' ? window.pdfHRA : {};
+
 function openHra(path0, label) {
   if (!safePdf(path0)) return;
+
   const path = toJpg(path0);
+
   $('pdftitle').textContent = 'HRA · ' + label;
   $('pdfmodal').classList.add('isimg');
   $('pdflink').textContent = 'ouvrir l’image dans un nouvel onglet';
-  zi = 0; $('imgviewer').style.width = '';
+
+  zi = 0;
+  $('imgviewer').style.width = '';
   $('imgviewer').src = path;
   $('pdflink').href = path;
+
   $('pdfmodal').showModal();
   $('imgwrap').scrollTo(0, 0);
-  zoomUi(); sizeImg();
+  zoomUi();
+  sizeImg();
 }
+
 $('aide').onclick = () => $('aidemodal').showModal();
 $('closeaide').onclick = () => $('aidemodal').close();
+
 $('aidemodal').addEventListener('close', () => $('aidevideo').pause());
+
 $('aidemodal').onclick = e => {
   if (e.target === $('aidemodal')) {
     const r = e.target.getBoundingClientRect();
-    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) e.target.close();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+      e.target.close();
+    }
   }
 };
+
 const ZOOMS = [1, 1.5, 2, 3, 4, 6];
 let zi = 0;
+
 function zoomUi() {
   $('zoomval').textContent = Math.round(ZOOMS[zi] * 100) + ' %';
   $('zout').disabled = $('zoomfit').disabled = zi === 0;
   $('zin').disabled = zi === ZOOMS.length - 1;
 }
+
 function sizeImg() {
-  const im = $('imgviewer'), w = $('imgwrap');
+  const im = $('imgviewer');
+  const w = $('imgwrap');
+
   if (!im.naturalWidth || !w.clientWidth) return;
-  const fit = Math.min(w.clientWidth, w.clientHeight * im.naturalWidth / im.naturalHeight);
+
+  const fit = Math.min(
+    w.clientWidth,
+    w.clientHeight * im.naturalWidth / im.naturalHeight
+  );
+
   im.style.width = Math.floor(fit * ZOOMS[zi]) + 'px';
 }
+
 function setZoom(n) {
   n = Math.max(0, Math.min(ZOOMS.length - 1, n));
   if (n === zi) return;
+
   const w = $('imgwrap');
-  const cx = (w.scrollLeft + w.clientWidth / 2) / w.scrollWidth, cy = (w.scrollTop + w.clientHeight / 2) / w.scrollHeight;
-  zi = n; zoomUi(); sizeImg();
+  const cx = (w.scrollLeft + w.clientWidth / 2) / w.scrollWidth;
+  const cy = (w.scrollTop + w.clientHeight / 2) / w.scrollHeight;
+
+  zi = n;
+  zoomUi();
+  sizeImg();
+
   w.scrollLeft = cx * w.scrollWidth - w.clientWidth / 2;
   w.scrollTop = cy * w.scrollHeight - w.clientHeight / 2;
 }
+
 $('zin').onclick = () => setZoom(zi + 1);
 $('zout').onclick = () => setZoom(zi - 1);
 $('zoomfit').onclick = () => setZoom(0);
+
 $('imgviewer').addEventListener('load', sizeImg);
 window.addEventListener('resize', sizeImg);
+
 $('closepdf').onclick = () => $('pdfmodal').close();
+
 $('pdfmodal').addEventListener('close', () => {
   $('pdfviewer').src = 'about:blank';
   $('imgviewer').removeAttribute('src');
   $('pdfviewer').title = 'Planning original de la semaine';
 });
+
 $('pdfmodal').onclick = e => {
   if (e.target === $('pdfmodal')) {
     const r = e.target.getBoundingClientRect();
-    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) e.target.close();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+      e.target.close();
+    }
   }
 };
 
 months.forEach((v, i) => {
   const b = document.createElement('button');
-  b.textContent = short[i]; b.title = v;
-  b.onclick = () => { m = i; render(); };
+  b.textContent = short[i];
+  b.title = v;
+  b.onclick = () => {
+    m = i;
+    render();
+  };
   $('months').append(b);
 });
-document.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { y = +b.dataset.y; render(); });
+
+document.querySelectorAll('[data-y]').forEach(b => {
+  b.onclick = () => {
+    y = +b.dataset.y;
+    render();
+  };
+});
 
 function render() {
   $('title').textContent = months[m] + ' ' + y;
   document.title = 'Planning — ' + months[m] + ' ' + y;
+
   Array.from($('months').children).forEach((b, i) => b.classList.toggle('on', i === m));
   document.querySelectorAll('[data-y]').forEach(b => b.classList.toggle('on', +b.dataset.y === y));
+
   $('prev').disabled = y === 2025 && m === 0;
   $('next').disabled = y === 2026 && m === 11;
 
@@ -547,195 +717,349 @@ function render() {
 
   const cmRow = document.createElement('tr');
   cmRow.className = 'comments';
-  const c0 = document.createElement('th'); c0.className = 'hour'; cmRow.append(c0);
+
+  const c0 = document.createElement('th');
+  c0.className = 'hour';
+  cmRow.append(c0);
+
   const weeks = document.createElement('tr');
   weeks.className = 'weeks';
-  const w0 = document.createElement('th'); w0.className = 'hour';
-  const hraPath = pdfHra[y + '-' + pad(m + 1)], hraLabel = months[m] + ' ' + y;
-  const hraBox = document.createElement('div'); hraBox.className = 'wbs';
-  const hraBtn = document.createElement('button'); hraBtn.className = 'wb hra blink'; hraBtn.textContent = 'HRA';
+
+  const w0 = document.createElement('th');
+  w0.className = 'hour';
+
+  const hraPath = pdfHra[y + '-' + pad(m + 1)];
+  const hraLabel = months[m] + ' ' + y;
+
+  const hraBox = document.createElement('div');
+  hraBox.className = 'wbs';
+
+  const hraBtn = document.createElement('button');
+  hraBtn.className = 'wb hra blink';
+  hraBtn.textContent = 'HRA';
   hraBtn.disabled = !safePdf(hraPath);
   hraBtn.title = 'Fiche mensuelle HRA · ' + hraLabel + (hraBtn.disabled ? ' — aucun PDF (voir pdf-weeks.js)' : '');
   hraBtn.onclick = () => openHra(hraPath, hraLabel);
-  hraBox.append(hraBtn); w0.append(hraBox); weeks.append(w0);
+
+  hraBox.append(hraBtn);
+  w0.append(hraBox);
+  weeks.append(w0);
+
   for (let d = 1; d <= n;) {
-    const date = new Date(y, m, d), start = monday(date), k = iso(start);
+    const date = new Date(y, m, d);
+    const start = monday(date);
+    const k = iso(start);
     const count = Math.min(n - d + 1, 7 - ((date.getDay() + 6) % 7));
+
     const th = document.createElement('th');
-    th.colSpan = count * 2; th.className = 'end';
-    const box = document.createElement('div'); box.className = 'wbs';
+    th.colSpan = count * 2;
+    th.className = 'end';
+
+    const box = document.createElement('div');
+    box.className = 'wbs';
+
     for (const a of Object.keys(agents)) {
-      const name = agents[a], path = (pdf[k] || {})[a], has = safePdf(path);
+      const name = agents[a];
+      const path = (pdf[k] || {})[a];
+      const has = safePdf(path);
+
       const b = document.createElement('button');
       b.className = 'wb';
       b.textContent = count >= 3 ? 'Horaire ' + name : count === 2 ? 'Horaire ' + name[0] : name[0];
       b.disabled = !has;
       b.title = name + ' · semaine du ' + fr(start) + (has ? ' — ouvrir le planning original' : ' — aucune image (voir pdf-weeks.js)');
       b.onclick = () => openPdf(k, start, a);
+
       box.append(b);
     }
-    th.append(box); weeks.append(th);
+
+    th.append(box);
+    weeks.append(th);
+
     const cth = document.createElement('th');
-    cth.colSpan = count * 2; cth.className = 'end cmc';
+    cth.colSpan = count * 2;
+    cth.className = 'end cmc';
+
     const txt = comments[k] || '';
+
     const cb = document.createElement('button');
     cb.className = 'cm' + (count < 3 ? ' narrow' : '') + (txt ? '' : ' empty');
-    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = txt || '+ Commentaire';
-    const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = txt ? '✎' : '+';
+
+    const ct = document.createElement('span');
+    ct.className = 'ct';
+    ct.textContent = txt || '+ Commentaire';
+
+    const ic = document.createElement('span');
+    ic.className = 'ic';
+    ic.textContent = txt ? '✎' : '+';
+
     cb.append(ct, ic);
     cb.title = txt ? txt + ' — cliquer pour modifier' : 'Ajouter un commentaire · semaine du ' + fr(start);
     cb.onclick = () => openComment(k, start);
-    cth.append(cb); cmRow.append(cth);
+
+    cth.append(cb);
+    cmRow.append(cth);
+
     d += count;
   }
 
   const days = document.createElement('tr');
   days.className = 'days';
-  const d0 = document.createElement('th'); d0.className = 'hour'; days.append(d0);
+
+  const d0 = document.createElement('th');
+  d0.className = 'hour';
+  days.append(d0);
+
   const ag = document.createElement('tr');
   ag.className = 'agents';
-  const a0 = document.createElement('th'); a0.className = 'hour'; ag.append(a0);
+
+  const a0 = document.createElement('th');
+  a0.className = 'hour';
+  ag.append(a0);
+
   for (let d = 1; d <= n; d++) {
     const w = new Date(y, m, d).getDay();
+
     const th = document.createElement('th');
     th.colSpan = 2;
     th.className = w === 0 ? 'end' : '';
     th.innerHTML = names[w] + '<b>' + pad(d) + '</b>';
     days.append(th);
+
     for (const a of Object.keys(agents)) {
       const t = document.createElement('th');
       t.className = 'agent cell' + (a === 'ERGUN' && w === 0 ? ' end' : '');
       t.textContent = agentTitle[a];
+
       const key = [y, pad(m + 1), pad(d), a, 'TITRE'].join('-');
       t.dataset.key = key;
       t.dataset.label = agents[a] + ' · ' + d + ' ' + months[m] + ' ' + y + ' · titre de colonne';
+
       cells[key] = t;
       setCell(t, data[key] || '');
       ag.append(t);
     }
   }
+
   $('head').replaceChildren(cmRow, weeks, days, ag);
 
   $('body').replaceChildren();
+
   for (const h of hours) {
     const tr = document.createElement('tr');
+
     const th = document.createElement('th');
-    th.scope = 'row'; th.className = 'hour'; th.textContent = h + 'h';
+    th.scope = 'row';
+    th.className = 'hour';
+    th.textContent = h + 'h';
     tr.append(th);
+
     for (let d = 1; d <= n; d++) {
       const w = new Date(y, m, d).getDay();
+
       for (const a of Object.keys(agents)) {
         const td = document.createElement('td');
         td.className = 'cell' + (a === 'RACHID' ? ' r' : '') + (a === 'ERGUN' ? ' eh' : '') + (a === 'ERGUN' && w === 0 ? ' end' : '');
+
         const key = [y, pad(m + 1), pad(d), a, pad(h)].join('-');
         td.dataset.key = key;
         td.dataset.label = agents[a] + ' · ' + d + ' ' + months[m] + ' ' + y + ' · ' + h + 'h';
+
         cells[key] = td;
         setCell(td, data[key] || '');
         tr.append(td);
       }
     }
+
     $('body').append(tr);
   }
-  for (let d = 1; d <= n; d++) common([y, pad(m + 1), pad(d)].join('-'));
+
+  for (let d = 1; d <= n; d++) {
+    common([y, pad(m + 1), pad(d)].join('-'));
+  }
+
   renderStats();
 }
 
 const table = $('table');
+
 table.addEventListener('pointerdown', e => {
   const td = e.target.closest('.cell');
   if (!td || (e.button !== 0 && e.button !== 2)) return;
+
   e.preventDefault();
-  drag = true; erase = e.button === 2 || brush === ''; last = td;
+  drag = true;
+  erase = e.button === 2 || brush === '';
+  last = td;
   paint(td, erase);
 });
+
 document.addEventListener('pointermove', e => {
   if (!drag) return;
+
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const td = el && el.closest('.cell');
-  if (td && td !== last && table.contains(td)) { last = td; paint(td, erase); }
+
+  if (td && td !== last && table.contains(td)) {
+    last = td;
+    paint(td, erase);
+  }
 });
+
 table.addEventListener('contextmenu', e => e.preventDefault());
-const stop = () => { drag = false; last = null; };
+
+const stop = () => {
+  drag = false;
+  last = null;
+};
+
 document.addEventListener('pointerup', stop);
 document.addEventListener('pointercancel', stop);
 window.addEventListener('blur', stop);
 
 function move(v) {
   m += v;
-  if (m < 0) { m = 11; y--; }
-  if (m > 11) { m = 0; y++; }
+
+  if (m < 0) {
+    m = 11;
+    y--;
+  }
+
+  if (m > 11) {
+    m = 0;
+    y++;
+  }
+
   render();
 }
+
 $('prev').onclick = () => move(-1);
 $('next').onclick = () => move(1);
 
 $('rename').onclick = () => {
   $('fields').replaceChildren();
+
   ids.forEach((id, i) => {
-    const row = document.createElement('label'); row.className = 'editrow';
+    const row = document.createElement('label');
+    row.className = 'editrow';
+
     const col = document.createElement('input');
-    col.type = 'color'; col.value = colors[id]; col.dataset.cid = id;
+    col.type = 'color';
+    col.value = colors[id];
+    col.dataset.cid = id;
     col.setAttribute('aria-label', 'Couleur du tag ' + (i + 1));
+
     const input = document.createElement('input');
-    input.value = labels[id]; input.required = true; input.maxLength = 24; input.dataset.id = id;
+    input.value = labels[id];
+    input.required = true;
+    input.maxLength = 24;
+    input.dataset.id = id;
     input.setAttribute('aria-label', 'Nom du tag ' + (i + 1));
-    row.append(col, input); $('fields').append(row);
+
+    row.append(col, input);
+    $('fields').append(row);
   });
+
   $('editor').showModal();
 };
+
 $('cancel').onclick = () => $('editor').close();
+
 $('editform').onsubmit = e => {
   e.preventDefault();
+
   const inputs = [...$('fields').querySelectorAll('input[data-id]')];
+
   if (inputs.some(i => !i.value.trim())) return;
+
   inputs.forEach(i => labels[i.dataset.id] = i.value.trim());
   $('fields').querySelectorAll('input[type=color]').forEach(c => colors[c.dataset.cid] = c.value);
-  save(); tags(); render(); $('editor').close();
+
+  save();
+  tags();
+  render();
+  $('editor').close();
 };
 
 $('export').onclick = () => {
   const u = URL.createObjectURL(new Blob([JSON.stringify(payload(), null, 2)], {type: 'application/json'}));
   const a = document.createElement('a');
-  a.href = u; a.download = 'planning-2025-2026.json'; a.click();
+
+  a.href = u;
+  a.download = 'planning-2025-2026.json';
+  a.click();
+
   setTimeout(() => URL.revokeObjectURL(u), 1000);
 };
+
 $('import').onclick = () => $('file').click();
+
 $('file').onchange = async e => {
   const f = e.target.files[0];
   if (!f) return;
+
   try {
     const o = decode(JSON.parse(await f.text()));
-    if (confirm('Remplacer le planning, les noms et couleurs de tags, les liens PDF et les commentaires (s’ils sont dans le fichier) par cette sauvegarde ?')) {
-      data = o.data; labels = o.labels; colors = o.colors; pdfs = o.pdfs;
-      if (o.comments) comments = o.comments;
-      save(); tags(); render();
+
+    if (confirm('Remplacer le planning, les noms et couleurs de tags, les liens PDF et les commentaires par cette sauvegarde ?')) {
+      data = o.data;
+      labels = o.labels;
+      colors = o.colors;
+      pdfs = o.pdfs;
+      comments = o.comments || {};
+
+      save();
+      tags();
+      render();
     }
-  } catch (err) { alert('Sauvegarde non valide : le fichier doit être au format horaire de ce planning.'); }
+  } catch (err) {
+    alert('Sauvegarde non valide : le fichier doit être au format horaire de ce planning.');
+  }
+
   e.target.value = '';
 };
 
 let cmKey = '';
+
 function openComment(k, start) {
-  const end = new Date(start); end.setDate(end.getDate() + 6);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
   cmKey = k;
   $('cmrange').textContent = 'Du ' + fr(start) + ' au ' + fr(end);
   $('cmtext').value = comments[k] || '';
+
   cmCount();
   $('cmodal').showModal();
   $('cmtext').focus();
 }
-function cmCount() { $('cmcount').textContent = $('cmtext').value.length + ' / 120'; }
+
+function cmCount() {
+  $('cmcount').textContent = $('cmtext').value.length + ' / 120';
+}
+
 $('cmtext').addEventListener('input', cmCount);
+
 $('cmtext').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('cmform').requestSubmit(); }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    $('cmform').requestSubmit();
+  }
 });
+
 $('cmcancel').onclick = () => $('cmodal').close();
+
 $('cmform').onsubmit = e => {
   e.preventDefault();
+
   const v = $('cmtext').value.replace(/\s+/g, ' ').trim().slice(0, 120);
-  if (v) comments[cmKey] = v; else delete comments[cmKey];
-  save(); render(); $('cmodal').close();
+
+  if (v) comments[cmKey] = v;
+  else delete comments[cmKey];
+
+  save();
+  render();
+  $('cmodal').close();
 };
 
 tags();
