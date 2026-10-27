@@ -299,17 +299,24 @@ function decode(o) {
   return {data: clean, labels: Object.fromEntries(ids.map(id => [id, l[id]])), colors: col, pdfs: proof, comments: comm};
 }
 
+// planning-default.js a toujours la priorité.
+data = {};
+labels = Object.fromEntries(ids.map(x => [x, x]));
+colors = {...defaultColors};
+pdfs = {};
+comments = {};
+
 try {
-  const o = decode(JSON.parse(localStorage.getItem(storeKey) || '{}'));
-  data = o.data; labels = o.labels; colors = o.colors; pdfs = o.pdfs; comments = o.comments || {};
+  if (window.planningParDefaut) {
+    const o = decode(window.planningParDefaut);
+    data = o.data;
+    labels = o.labels;
+    colors = o.colors;
+    pdfs = o.pdfs;
+    comments = o.comments || {};
+  }
 } catch (e) {
-  // Aucune sauvegarde locale valide : on utilise planning-default.js
-  try {
-    if (window.planningParDefaut) {
-      const o = decode(window.planningParDefaut);
-      data = o.data; labels = o.labels; colors = o.colors; pdfs = o.pdfs; comments = o.comments || {};
-    }
-  } catch (e2) {}
+  console.error('planning-default.js invalide ou incompatible.', e);
 }
 
 // Les chemins définis dans pdf-weeks.js ont priorité sur ceux du JSON.
