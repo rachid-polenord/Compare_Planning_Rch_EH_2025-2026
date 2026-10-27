@@ -196,10 +196,10 @@ window.pdfParSemaine = {
 window.pdfHRA = {
 
   // ---------- 2025 ----------
-  "2025-01": "hra/2025-01.pdf",   // Janvier 2025
-  "2025-02": "hra/2025-02.pdf",   // Février 2025
-  "2025-03": "hra/2025-03.pdf",   // Mars 2025
-  "2025-04": "hra/2025-04.pdf",   // Avril 2025
+  "2025-01": "hra/2025-01.webp",   // Janvier 2025
+  "2025-02": "hra/2025-02.webp",   // Février 2025
+  "2025-03": "hra/2025-03.webp",   // Mars 2025
+  "2025-04": "hra/2025-04.webp",   // Avril 2025
   "2025-05": "hra/2025-05.pdf",   // Mai 2025
   "2025-06": "hra/2025-06.pdf",   // Juin 2025
   "2025-07": "hra/2025-07.pdf",   // Juillet 2025
